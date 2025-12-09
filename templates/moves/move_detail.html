@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Move #{{ move.id }} – QuickMove{% endblock %}
+
+{% block content %}
+<h2 class="mb-3">Move details</h2>
+
+<ul class="list-group mb-3">
+  <li class="list-group-item">
+    <strong>Pickup:</strong> {{ move.pickup_address }}
+  </li>
+  <li class="list-group-item">
+    <strong>Dropoff:</strong> {{ move.dropoff_address }}
+  </li>
+  <li class="list-group-item">
+    <strong>Scheduled:</strong> {{ move.scheduled_date|date:"M d, Y" }}
+  </li>
+  <li class="list-group-item">
+    <strong>Status:</strong> {{ move.get_status_display }}
+  </li>
+  {% if move.notes %}
+    <li class="list-group-item">
+      <strong>Notes:</strong> {{ move.notes }}
+    </li>
+  {% endif %}
+</ul>
+
+<div class="d-flex gap-2">
+  {% if user == move.customer or user.role == "staff" %}
+    <a href="{% url 'moves:update' move.pk %}" class="btn btn-primary">
+      Edit
+    </a>
+
+    {% if move.status != "cancelled" and move.status != "completed" %}
+      <a href="{% url 'moves:cancel' move.pk %}" class="btn btn-outline-danger">
+        Cancel move
+      </a>
+    {% endif %}
+  {% endif %}
+  <a href="{% url 'moves:list' %}" class="btn btn-secondary ms-auto">
+    Back to list
+  </a>
+</div>
+{% endblock %}

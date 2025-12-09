@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Cancel move – QuickMove{% endblock %}
+
+{% block content %}
+<h2 class="mb-3">Cancel this move?</h2>
+
+<p>
+  Are you sure you want to cancel the move from
+  <strong>{{ move.pickup_address }}</strong> to
+  <strong>{{ move.dropoff_address }}</strong>
+  scheduled on {{ move.scheduled_date|date:"M d, Y" }}?
+</p>
+
+<form method="post">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-danger">Yes, cancel it</button>
+  <a href="{% url 'moves:detail' move.pk %}" class="btn btn-secondary ms-2">
+    Go back
+  </a>
+</form>
+{% endblock %}

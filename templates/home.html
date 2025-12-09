@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Home – QuickMove{% endblock %}
+
+{% block content %}
+  {% if not user.is_authenticated %}
+    <!-- Visitor landing page -->
+    <div class="row justify-content-center">
+      <div class="col-md-8 text-center">
+        <h1 class="mb-3">Moving stuff without a car just got easy.</h1>
+        <p class="lead mb-4">
+          Book a driver, set your pickup and dropoff, and we'll handle the heavy lifting.
+        </p>
+        <div class="d-flex justify-content-center gap-3 mb-4">
+          <a href="{% url 'signup' %}" class="btn btn-primary btn-lg">
+            Sign up to book a move
+          </a>
+          <a href="{% url 'login' %}" class="btn btn-outline-secondary btn-lg">
+            Log in
+          </a>
+        </div>
+
+        <div class="row mt-5">
+          <div class="col-md-4 mb-3">
+            <h5>Book in minutes</h5>
+            <p>Enter pickup, dropoff, and time. We'll match you with a driver.</p>
+          </div>
+          <div class="col-md-4 mb-3">
+            <h5>Transparent pricing</h5>
+            <p>Flat base fee plus distance. No hidden costs.</p>
+          </div>
+          <div class="col-md-4 mb-3">
+            <h5>Trusted drivers</h5>
+            <p>Every driver is verified and rated after each move.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  {% else %}
+    <!-- Dashboard-like home for logged-in users -->
+    <h2 class="mb-3">
+      Welcome back, {{ user.first_name|default:user.username }}!
+    </h2>
+
+    {% if user_role == 'customer' %}
+      <p class="mb-3">Here are your upcoming moves.</p>
+      <a href="{% url 'moves:create' %}" class="btn btn-primary mb-4">
+        + Book a new move
+      </a>
+
+      <a href="{% url 'moves:list' %}" class="btn btn-outline-secondary mb-4 ms-2">
+        View all my moves
+      </a>
+
+      {% if upcoming_moves %}
+        <div class="list-group">
+          {% for move in upcoming_moves %}
+            <a href="{% url 'moves:detail' move.id %}"
+               class="list-group-item list-group-item-action">
+              <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">
+                  {{ move.pickup_address }} → {{ move.dropoff_address }}
+                </h5>
+                <small>{{ move.requested_date|date:"M d" }}</small>
+              </div>
+              <p class="mb-1">
+                Status: {{ move.get_status_display }}
+              </p>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>You don’t have any upcoming moves yet.</p>
+      {% endif %}
+
+    {% elif user_role in 'driver staff' %}
+      <div class="row">
+        <div class="col-md-6 mb-4">
+          <h4>Assigned to you</h4>
+          {% if assigned_moves %}
+            <div class="list-group">
+              {% for move in assigned_moves %}
+                <a href="{% url 'moves:detail' move.id %}"
+                   class="list-group-item list-group-item-action">
+                  <strong>{{ move.pickup_address }} → {{ move.dropoff_address }}</strong><br>
+                  <small>{{ move.requested_date|date:"M d" }} · Status: {{ move.get_status_display }}</small>
+                </a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p>No active assignments.</p>
+          {% endif %}
+        </div>
+
+        {% if user_role == 'staff' %}
+          <div class="col-md-6 mb-4">
+            <h4>Open requests</h4>
+            {% if open_moves %}
+              <div class="list-group">
+                {% for move in open_moves %}
+                  <a href="{% url 'moves:detail' move.id %}"
+                     class="list-group-item list-group-item-action">
+                    <strong>{{ move.pickup_address }} → {{ move.dropoff_address }}</strong><br>
+                    <small>{{ move.requested_date|date:"M d" }} · Customer: {{ move.customer }}</small>
+                  </a>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p>No pending requests.</p>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <p>We couldn’t determine your role. Please contact an administrator.</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}

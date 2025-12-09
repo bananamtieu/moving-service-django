@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}My moves – QuickMove{% endblock %}
+
+{% block content %}
+<h2 class="mb-3">My moves</h2>
+
+{% if user.role == 'customer' %}
+  <a href="{% url 'moves:create' %}" class="btn btn-primary mb-3">
+    + Book a new move
+  </a>
+{% endif %}
+
+{% if moves %}
+  <div class="list-group">
+    {% for move in moves %}
+      <a href="{% url 'moves:detail' move.pk %}"
+         class="list-group-item list-group-item-action">
+        <div class="d-flex w-100 justify-content-between">
+          <h5 class="mb-1">
+            {{ move.pickup_address }} → {{ move.dropoff_address }}
+          </h5>
+          <small>{{ move.scheduled_date|date:"M d" }}</small>
+        </div>
+        <p class="mb-1">
+          Status: {{ move.get_status_display }}
+        </p>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <p>You have no moves yet.</p>
+{% endif %}
+{% endblock %}
