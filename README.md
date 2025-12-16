@@ -34,6 +34,7 @@ This project focuses on clean Django architecture, authentication, form-based CR
 ---
 
 ## Project Structure
+```
 moving_service/
 ├── manage.py
 ├── moving_service/
@@ -44,6 +45,7 @@ moving_service/
 ├── templates/ # shared templates (base, home, auth)
 ├── requirements.txt
 └── README.md
+```
 
 ---
 
@@ -60,7 +62,7 @@ moving_service/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<your-username>/moving-service-django.git
+git clone https://github.com/bananamtieu/moving-service-django.git
 cd moving-service-django
 ```
 
