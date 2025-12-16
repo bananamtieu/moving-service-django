@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: moving_service_db
+      POSTGRES_USER: moving_service_user
+      POSTGRES_PASSWORD: capy_is_moving
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moving_service_user -d moving_service_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_NAME: moving_service_db
+      DB_USER: moving_service_user
+      DB_PASSWORD: capy_is_moving
+      DB_HOST: db
+      DB_PORT: 5432
+      ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
+
+volumes:
+  db_data:
