@@ -1,6 +1,8 @@
 # moves/views.py
-from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q, Count
+from django.utils.dateparse import parse_date
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponseForbidden
 from .models import MoveRequest
 from .forms import MoveRequestForm
@@ -49,16 +51,50 @@ def home(request):
 @login_required
 def move_list(request):
     user = request.user
+    qs = MoveRequest.objects.all().select_related("customer", "driver")  # JOINs
+
+    # Role scoping
     if user.role == 'customer':
-        moves = MoveRequest.objects.filter(customer=user).order_by('-scheduled_date')
-    elif user.role in ['driver', 'staff']:
-        # For now: staff & drivers see everything
-        moves = MoveRequest.objects.all().order_by('-scheduled_date')
-    else:
-        moves = MoveRequest.objects.none()
+        qs = qs.filter(customer=user)    
+    elif user.role == "driver":
+        qs = qs.filter(driver=user)   # drivers see assigned moves only
+    # staff sees all
+
+    # ---- Filters from query params ----
+    status = request.GET.get("status", "").strip()
+    if status:
+        qs = qs.filter(status=status)
     
-    context = {'moves': moves}
-    return render(request, 'moves/move_list.html', context)
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(
+            Q(pickup_address__icontains=q) |
+            Q(dropoff_address__icontains=q) |
+            Q(customer__username__icontains=q) |
+            Q(driver__username__icontains=q)
+        )
+    
+    start = parse_date(request.GET.get("start", ""))
+    end = parse_date(request.GET.get("end", ""))
+    if start:
+        qs = qs.filter(scheduled_date__gte=start)
+    if end:
+        qs = qs.filter(scheduled_date__lte=end)
+    
+    qs = qs.order_by("-scheduled_date", "-created_at")
+
+    # Annotations: counts by status for the filtered queryset
+    summary = qs.values("status").annotate(total=Count("id")).order_by("status")
+
+    context = {
+        "moves": qs,
+        "summary": summary,
+        "status": status,
+        "q": q,
+        "start": request.GET.get("start", ""),
+        "end": request.GET.get("end", ""),
+    }
+    return render(request, "moves/move_list.html", context)
 
 @login_required
 def move_create(request):
