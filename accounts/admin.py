@@ -11,6 +11,6 @@ class UserAdmin(DjangoUserAdmin):
     list_filter = ("role", "is_staff", "is_superuser", "is_active")
 
     # Add "role" to the existing fieldsets
-    fieldsets = DjangoUserAdmin.fieldsets + ("Role", {"fields": ("role",)})
+    fieldsets = DjangoUserAdmin.fieldsets + (("Role", {"fields": ("role",)}), )
 
-    add_fieldsets = DjangoUserAdmin.add_fieldsets + ("Role", {"fields": ("role",)})
+    add_fieldsets = DjangoUserAdmin.add_fieldsets + (("Role", {"fields": ("role",)}), )
