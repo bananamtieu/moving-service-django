@@ -12,5 +12,4 @@ class UserAdmin(DjangoUserAdmin):
 
     # Add "role" to the existing fieldsets
     fieldsets = DjangoUserAdmin.fieldsets + (("Role", {"fields": ("role",)}), )
-
     add_fieldsets = DjangoUserAdmin.add_fieldsets + (("Role", {"fields": ("role",)}), )

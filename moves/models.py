@@ -19,13 +19,11 @@ class MoveRequest(models.Model):
     pickup_address = models.CharField(max_length=255)
     dropoff_address = models.CharField(max_length=255)
     scheduled_date = models.DateField()
-    
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
     notes = models.TextField(blank=True)
-    estimated_price = models.DecimalField(
-        max_digits=8, decimal_places=2, null=True, blank=True
-    )
+    estimated_price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
