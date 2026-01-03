@@ -1,173 +1,220 @@
 # moves/views.py
-from django.contrib.auth.decorators import login_required
+from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q, Count
 from django.utils.dateparse import parse_date
-from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse_lazy
+from django.shortcuts import redirect
 from django.http import HttpResponseForbidden
 from .models import MoveRequest
 from .forms import MoveRequestForm
 
 # Create your views here.
-def home(request):
-    if request.user.is_authenticated:
-        user = request.user
+class HomeView(TemplateView):
+    template_name = 'home.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        user = self.request.user
 
         # Default values
-        upcoming_moves = []
-        assigned_moves = []
-        open_move_requests = []
+        ctx['user_role'] = None
+        ctx['upcoming_moves'] = []
+        ctx['assigned_moves'] = []
+        ctx['open_move_requests'] = []
+
+        if user.is_authenticated:
+            ctx['user_role'] = user.role
+            if user.role == 'customer':
+                ctx['upcoming_moves'] = (
+                    MoveRequest.objects
+                    .filter(customer=user)
+                    .exclude(status__in=['completed', 'cancelled'])
+                    .order_by('scheduled_date')[:3]
+                )
+            elif user.role in ['driver', 'staff']:
+                ctx['assigned_moves'] = (
+                    MoveRequest.objects
+                    .filter(driver=user)
+                    .exclude(status__in=['completed', 'cancelled'])
+                    .order_by('scheduled_date')[:3]
+                )
+                if user.role == 'staff':
+                    ctx['open_move_requests'] = (
+                        MoveRequest.objects
+                        .filter(status='pending')
+                        .order_by('scheduled_date')[:5]
+                    )
+        
+        return ctx
+
+class RoleRequiredMixin(UserPassesTestMixin):
+    required_roles = ()
+
+    def role_test(self):
+        return getattr(self.request.user, 'role', None) in self.required_roles
+
+    def test_func(self):
+        return self.role_test()
+
+class BaseMoveListView(LoginRequiredMixin, ListView):
+    model = MoveRequest
+    template_name = 'moves/move_list.html'
+    context_object_name = 'moves'
+
+    def base_queryset(self):
+        # Override in subclasses
+        return MoveRequest.objects.none()
+    
+    def get_queryset(self):
+        qs = self.base_queryset().select_related('customer', 'driver')
+
+        status = self.request.GET.get('status', '').strip()
+        if status:
+            qs = qs.filter(status=status)
+        
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(
+                Q(pickup_address__icontains=q) |
+                Q(dropoff_address__icontains=q) |
+                Q(customer__username__icontains=q) |
+                Q(driver__username__icontains=q)
+            )
+        
+        start = parse_date(self.request.GET.get('start', ''))
+        end = parse_date(self.request.GET.get('end', ''))
+        if start:
+            qs = qs.filter(scheduled_date__gte=start)
+        if end:
+            qs = qs.filter(scheduled_date__lte=end)
+        
+        return qs.order_by('-scheduled_date', '-created_at')
+    
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        qs = ctx['moves']
+        ctx['summary'] = qs.values('status').annotate(total=Count('id')).order_by('status')
+
+        # persist form fields
+        ctx['status'] = self.request.GET.get('status', '')
+        ctx['q'] = self.request.GET.get('q', '')
+        ctx['start'] = self.request.GET.get('start', '')
+        ctx['end'] = self.request.GET.get('end', '')
+        return ctx
+
+class MoveListView(RoleRequiredMixin, BaseMoveListView):
+    required_roles = ('customer',)
+
+    def base_queryset(self):
+        return MoveRequest.objects.filter(customer=self.request.user)
+
+class DriverMoveListView(RoleRequiredMixin, BaseMoveListView):
+    required_roles = ('driver',)
+
+    def base_queryset(self):
+        return MoveRequest.objects.filter(driver=self.request.user)
+
+class StaffMoveListView(RoleRequiredMixin, BaseMoveListView):
+    required_roles = ('staff',)
+
+    def base_queryset(self):
+        return MoveRequest.objects.all()
+
+class MoveDetailView(LoginRequiredMixin, DetailView):
+    model = MoveRequest
+    template_name = 'moves/move_detail.html'
+    context_object_name = 'move'
+
+    def get_queryset(self):
+        """
+        Enforce object-level authorization:
+        - customer: can only view their own moves
+        - driver: can only view assigned moves
+        - staff: can view all moves
+        """
+        qs = MoveRequest.objects.select_related('customer', 'driver')
+        user = self.request.user
 
         if user.role == 'customer':
-            upcoming_moves = (
-                MoveRequest.objects
-                .filter(customer=user)
-                .exclude(status__in=['completed', 'canceled'])
-                .order_by('scheduled_date')[:3]
-            )
-        elif user.role in ['driver', 'staff']:
-            assigned_moves = (
-                MoveRequest.objects
-                .filter(driver=user)
-                .exclude(status__in=['completed', 'canceled'])
-                .order_by('scheduled_date')[:3]
-            )
-            if user.role == 'staff':
-                open_move_requests = (
-                    MoveRequest.objects
-                    .filter(status='pending')
-                    .order_by('scheduled_date')[:5]
-                )
+            return qs.filter(customer=user)
         
-        context = {
-            'user_role': user.role,
-            'upcoming_moves': upcoming_moves,
-            'assigned_moves': assigned_moves,
-            'open_move_requests': open_move_requests,
-        }
-    else:
-        context = {}
-    return render(request, 'home.html', context)
+        if user.role == 'driver':
+            return qs.filter(driver=user)  # only assigned moves
+        
+        # staff can view all
+        return qs
 
-@login_required
-def move_list(request):
-    user = request.user
-    qs = MoveRequest.objects.all().select_related("customer", "driver")  # JOINs
+class MoveCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
+    model = MoveRequest
+    form_class = MoveRequestForm
+    template_name = 'moves/move_form.html'
+    required_roles = ('customer',)
 
-    # Role scoping
-    if user.role == 'customer':
-        qs = qs.filter(customer=user)
-    elif user.role == 'driver':
-        qs = qs.filter(driver=user)   # drivers see assigned moves only
-    # staff sees all
-
-    # ---- Filters from query params ----
-    status = request.GET.get('status', '').strip()
-    if status:
-        qs = qs.filter(status=status)
+    def form_valid(self, form):
+        form.instance.customer = self.request.user
+        form.instance.status = 'pending'
+        return super().form_valid(form)
     
-    q = request.GET.get('q', '').strip()
-    if q:
-        qs = qs.filter(
-            Q(pickup_address__icontains=q) |
-            Q(dropoff_address__icontains=q) |
-            Q(customer__username__icontains=q) |
-            Q(driver__username__icontains=q)
-        )
+    def get_success_url(self):
+        return reverse_lazy('moves:detail', kwargs={'pk': self.object.pk})
     
-    start = parse_date(request.GET.get('start', ''))
-    end = parse_date(request.GET.get('end', ''))
-    if start:
-        qs = qs.filter(scheduled_date__gte=start)
-    if end:
-        qs = qs.filter(scheduled_date__lte=end)
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['title'] = 'Book a New Move'
+        return ctx
+
+class MoveUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
+    model = MoveRequest
+    form_class = MoveRequestForm
+    template_name = 'moves/move_form.html'
+    required_roles = ('customer', 'staff')
+
+    def test_func(self):
+        if not self.role_test():
+            return False
+        
+        move = self.get_object()
+        user = self.request.user
+
+        # Only customer who owns it OR staff can edit
+        return (move.customer == user) or (user.role == 'staff')
     
-    qs = qs.order_by("-scheduled_date", "-created_at")
-
-    # Annotations: counts by status for the filtered queryset
-    summary = qs.values('status').annotate(total=Count('id')).order_by('status')
-
-    context = {
-        'moves': qs,
-        'summary': summary,
-        'status': status,
-        'q': q,
-        'start': request.GET.get('start', ''),
-        'end': request.GET.get('end', ''),
-    }
-    return render(request, 'moves/move_list.html', context)
-
-@login_required
-def move_detail(request, pk):
-    move = get_object_or_404(MoveRequest, pk=pk)
-
-    # Simple permission check:
-    if not (move.customer == request.user or request.user.role in ['driver', 'staff']):
-        return HttpResponseForbidden('You do not have permission to view this move.')
+    def dispatch(self, request, *args, **kwargs):
+        # Block editing completed/cancelled moves
+        move = self.get_object()
+        if move.status in ['completed', 'cancelled']:
+            return HttpResponseForbidden('Completed or cancelled moves cannot be edited.')
+        return super().dispatch(request, *args, **kwargs)
     
-    context = {'move': move}
-    return render(request, 'moves/move_detail.html', context)
+    def get_success_url(self):
+        return reverse_lazy('moves:detail', kwargs={'pk': self.object.pk})
+    
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['title'] = 'Edit Move'
+        return ctx
 
-@login_required
-def move_create(request):
-    if request.user.role != 'customer':
-        return HttpResponseForbidden('Only customers can book moves right now.')
-    
-    if request.method == 'POST':
-        form = MoveRequestForm(request.POST)
-        if form.is_valid():
-            move = form.save(commit=False)
-            move.customer = request.user
-            move.status = 'pending'
-            move.save()
-            return redirect('moves:detail', pk=move.pk)
-    else:
-        form = MoveRequestForm()
-    
-    context = {
-        'form': form,
-        'title': 'Book a New Move',
-    }
-    return render(request, 'moves/move_form.html', context)
+class MoveCancelView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
+    model = MoveRequest
+    fields = []  # no editable fields shown
+    template_name = 'moves/move_cancel_confirm.html'
+    context_object_name = "move"
+    required_roles = ('customer', 'staff')
 
-@login_required
-def move_update(request, pk):
-    move = get_object_or_404(MoveRequest, pk=pk)
+    def test_func(self):
+        if not self.role_test():
+            return False
 
-    # Only customer who owns it OR staff can edit for now
-    if not (move.customer == request.user or request.user.role == 'staff'):
-        return HttpResponseForbidden('You do not have permission to edit this move.')
-    
-    # Optional: limit editing if already completed/cancelled
-    if move.status in ['completed', 'cancelled']:
-        return HttpResponseForbidden('Completed or cancelled moves cannot be edited.')
-    
-    if request.method == 'POST':
-        form = MoveRequestForm(request.POST, instance=move)
-        if form.is_valid():
-            form.save()
-            return redirect('moves:detail', pk=move.pk)
-    else:
-        form = MoveRequestForm(instance=move)
-    
-    context = {
-        'form': form,
-        'title': 'Edit Move',
-    }
-    return render(request, 'moves/move_form.html', context)
+        move = self.get_object()
+        user = self.request.user
 
-@login_required
-def move_cancel(request, pk):
-    move = get_object_or_404(MoveRequest, pk=pk)
-
-    # Only customer who owns it OR staff can cancel
-    if not (move.customer == request.user or request.user.role == 'staff'):
-        return HttpResponseForbidden('You do not have permission to cancel this move.')
+        # Only customer who owns it OR staff can cancel
+        return (move.customer == user) or (user.role == 'staff')
     
-    if request.method == 'POST':
-        # soft cancel
-        move.status = 'cancelled'
-        move.save()
+    def post(self, request, *args, **kwargs):
+        # soft cancel on POST
+        self.object = self.get_object()
+        self.object.status = 'cancelled'
+        self.object.save(update_fields=['status'])
         return redirect('moves:list')
-    
-    context = {'move': move}
-    return render(request, 'moves/move_cancel_confirm.html', context)

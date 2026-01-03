@@ -4,9 +4,9 @@ from django.utils import timezone
 from .models import MoveRequest
 
 class MoveRequestForm(forms.ModelForm):
-    scheduled_date = forms.DateTimeField(
-        widget=forms.DateTimeInput(attrs={'type': 'date'}),
-        input_formats=['%Y-%m-%d'],
+    scheduled_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
+        input_formats=["%Y-%m-%d"],
     )
 
     class Meta:
@@ -24,8 +24,12 @@ class MoveRequestForm(forms.ModelForm):
         }
     
     def clean_scheduled_date(self):
-        dt = self.cleaned_data['scheduled_date']
-        if dt <= timezone.now():
-            raise forms.ValidationError("Please choose a time in the future.")
-        return dt
-    
+        date = self.cleaned_data["scheduled_date"]
+        if date <= timezone.localdate():
+            raise forms.ValidationError("Please choose a future date.")
+        return date
+
+class StaffAssignForm(forms.ModelForm):
+    class Meta:
+        model = MoveRequest
+        fields = ['driver', 'status', 'estimated_price']

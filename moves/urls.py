@@ -5,9 +5,11 @@ from . import views
 app_name = 'moves'
 
 urlpatterns = [
-    path('', views.move_list, name='list'),
-    path('new/', views.move_create, name='create'),
-    path('<int:pk>/', views.move_detail, name='detail'),
-    path('<int:pk>/edit/', views.move_update, name='update'),
-    path('<int:pk>/cancel/', views.move_cancel, name='cancel'),
+    path('', views.MoveListView.as_view(), name='list'),
+    path('driver/', views.DriverMoveListView.as_view(), name='driver_list'),
+    path('staff/', views.StaffMoveListView.as_view(), name='staff_list'),
+    path('new/', views.MoveCreateView.as_view(), name='create'),
+    path('<int:pk>/', views.MoveDetailView.as_view(), name='detail'),
+    path('<int:pk>/edit/', views.MoveUpdateView.as_view(), name='update'),
+    path('<int:pk>/cancel/', views.MoveCancelView.as_view(), name='cancel'),
 ]
