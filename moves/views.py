@@ -6,8 +6,9 @@ from django.utils.dateparse import parse_date
 from django.urls import reverse_lazy
 from django.shortcuts import redirect
 from django.http import HttpResponseForbidden
+
 from .models import MoveRequest
-from .forms import MoveRequestForm
+from .forms import MoveRequestForm, StaffAssignDriverForm
 
 # Create your views here.
 class HomeView(TemplateView):
@@ -218,3 +219,28 @@ class MoveCancelView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
         self.object.status = 'cancelled'
         self.object.save(update_fields=['status'])
         return redirect('moves:list')
+
+class StaffAssignDriverView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
+    model = MoveRequest
+    form_class = StaffAssignDriverForm
+    template_name = 'moves/staff_assign_driver.html'
+    required_roles = ('staff',)
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.object.status in ['completed', 'cancelled']:
+            return HttpResponseForbidden('Cannot assign a driver to a completed/cancelled move.')
+        return super().dispatch(request, *args, **kwargs)
+    
+    def form_valid(self, form):
+        resp = super().form_valid(form)
+
+        # Optional: auto-mark as accepted when assigned
+        if self.object.status == 'pending':
+            self.object.status = 'accepted'
+            self.object.save(update_fields=['status'])
+        
+        return resp
+    
+    def get_success_url(self):
+        return reverse_lazy('moves:detail', kwargs={'pk': self.object.pk})

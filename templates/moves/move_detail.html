@@ -37,6 +37,11 @@
       </a>
     {% endif %}
   {% endif %}
+  {% if user.role == "staff" %}
+    <a href="{% url 'moves:assign_driver' move.pk %}" class="btn btn-outline-primary">
+      Assign driver
+    </a>
+  {% endif %}
   <a href="{% url 'moves:list' %}" class="btn btn-secondary ms-auto">
     Back to list
   </a>

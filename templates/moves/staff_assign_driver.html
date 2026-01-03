@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Assign driver – QuickMove{% endblock %}
+
+{% block content %}
+<h2 class="mb-3">Assign a driver</h2>
+
+<p class="text-muted">
+  Move #{{ object.pk }}: {{ object.pickup_address }} → {{ object.dropoff_address }}
+</p>
+
+<form method="post" class="card card-body">
+  {% csrf_token %}
+  {{ form.as_p }}
+
+  <div class="mt-2">
+    <button class="btn btn-primary" type="submit">Assign</button>
+    <a class="btn btn-outline-secondary ms-2" href="{% url 'moves:detail' object.pk %}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

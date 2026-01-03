@@ -12,4 +12,5 @@ urlpatterns = [
     path('<int:pk>/', views.MoveDetailView.as_view(), name='detail'),
     path('<int:pk>/edit/', views.MoveUpdateView.as_view(), name='update'),
     path('<int:pk>/cancel/', views.MoveCancelView.as_view(), name='cancel'),
+    path('<int:pk>/assign-driver/', views.StaffAssignDriverView.as_view(), name='assign_driver'),
 ]

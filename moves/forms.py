@@ -1,6 +1,7 @@
 # moves/forms.py
 from django import forms
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 from .models import MoveRequest
 
 class MoveRequestForm(forms.ModelForm):
@@ -29,7 +30,22 @@ class MoveRequestForm(forms.ModelForm):
             raise forms.ValidationError('Please choose a future date.')
         return date
 
-class StaffAssignForm(forms.ModelForm):
+class StaffAssignDriverForm(forms.ModelForm):
     class Meta:
         model = MoveRequest
-        fields = ['driver', 'status', 'estimated_price']
+        fields = ['driver']
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['driver'].queryset = (
+            User.objects
+            .filter(role='driver')
+            .order_by('username')
+        )
+        self.fields['driver'].required = True
+    
+    def clean_driver(self):
+        driver = self.cleaned_data['driver']
+        if getattr(driver, 'role', None) != 'driver':
+            raise forms.ValidationError('Selected user is not a driver.')
+        return driver
