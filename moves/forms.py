@@ -5,8 +5,8 @@ from .models import MoveRequest
 
 class MoveRequestForm(forms.ModelForm):
     scheduled_date = forms.DateField(
-        widget=forms.DateInput(attrs={"type": "date"}),
-        input_formats=["%Y-%m-%d"],
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        input_formats=['%Y-%m-%d'],
     )
 
     class Meta:
@@ -24,9 +24,9 @@ class MoveRequestForm(forms.ModelForm):
         }
     
     def clean_scheduled_date(self):
-        date = self.cleaned_data["scheduled_date"]
+        date = self.cleaned_data['scheduled_date']
         if date <= timezone.localdate():
-            raise forms.ValidationError("Please choose a future date.")
+            raise forms.ValidationError('Please choose a future date.')
         return date
 
 class StaffAssignForm(forms.ModelForm):
