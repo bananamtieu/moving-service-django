@@ -33,19 +33,19 @@ class HomeView(TemplateView):
                     .exclude(status__in=['completed', 'cancelled'])
                     .order_by('scheduled_date')[:3]
                 )
-            elif user.role in ['driver', 'staff']:
+            if user.role == 'driver':
                 ctx['assigned_moves'] = (
                     MoveRequest.objects
                     .filter(driver=user)
                     .exclude(status__in=['completed', 'cancelled'])
                     .order_by('scheduled_date')[:3]
                 )
-                if user.role == 'staff':
-                    ctx['open_move_requests'] = (
-                        MoveRequest.objects
-                        .filter(status='pending')
-                        .order_by('scheduled_date')[:5]
-                    )
+            if user.role == 'staff':
+                ctx['open_move_requests'] = (
+                    MoveRequest.objects
+                    .filter(status='pending')
+                    .order_by('scheduled_date')
+                )
         
         return ctx
 
@@ -58,17 +58,14 @@ class RoleRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         return self.role_test()
 
-class BaseMoveListView(LoginRequiredMixin, ListView):
+class MoveListView(LoginRequiredMixin, ListView):
     model = MoveRequest
     template_name = 'moves/move_list.html'
     context_object_name = 'moves'
-
-    def base_queryset(self):
-        # Override in subclasses
-        return MoveRequest.objects.none()
     
     def get_queryset(self):
-        qs = self.base_queryset().select_related('customer', 'driver')
+        qs = MoveRequest.objects.select_related('customer', 'driver')
+        user = self.request.user
 
         status = self.request.GET.get('status', '').strip()
         if status:
@@ -90,7 +87,14 @@ class BaseMoveListView(LoginRequiredMixin, ListView):
         if end:
             qs = qs.filter(scheduled_date__lte=end)
         
-        return qs.order_by('-scheduled_date', '-created_at')
+        qs = qs.order_by('-scheduled_date', '-created_at')
+        if user.role == 'customer':
+            return qs.filter(customer=user)
+        if user.role == 'driver':
+            return qs.filter(driver=user)  # only assigned moves
+        
+        # staff can view all
+        return qs
     
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -103,24 +107,6 @@ class BaseMoveListView(LoginRequiredMixin, ListView):
         ctx['start'] = self.request.GET.get('start', '')
         ctx['end'] = self.request.GET.get('end', '')
         return ctx
-
-class MoveListView(RoleRequiredMixin, BaseMoveListView):
-    required_roles = ('customer',)
-
-    def base_queryset(self):
-        return MoveRequest.objects.filter(customer=self.request.user)
-
-class DriverMoveListView(RoleRequiredMixin, BaseMoveListView):
-    required_roles = ('driver',)
-
-    def base_queryset(self):
-        return MoveRequest.objects.filter(driver=self.request.user)
-
-class StaffMoveListView(RoleRequiredMixin, BaseMoveListView):
-    required_roles = ('staff',)
-
-    def base_queryset(self):
-        return MoveRequest.objects.all()
 
 class MoveDetailView(LoginRequiredMixin, DetailView):
     model = MoveRequest
@@ -139,7 +125,6 @@ class MoveDetailView(LoginRequiredMixin, DetailView):
 
         if user.role == 'customer':
             return qs.filter(customer=user)
-        
         if user.role == 'driver':
             return qs.filter(driver=user)  # only assigned moves
         

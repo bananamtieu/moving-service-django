@@ -4,6 +4,8 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from .models import MoveRequest
 
+User = get_user_model()
+
 class MoveRequestForm(forms.ModelForm):
     scheduled_date = forms.DateField(
         widget=forms.DateInput(attrs={'type': 'date'}),

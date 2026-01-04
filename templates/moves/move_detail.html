@@ -27,21 +27,21 @@
 
 <div class="d-flex gap-2">
   {% if user == move.customer or user.role == "staff" %}
-    <a href="{% url 'moves:update' move.pk %}" class="btn btn-primary">
-      Edit
-    </a>
-
     {% if move.status != "cancelled" and move.status != "completed" %}
+      <a href="{% url 'moves:update' move.pk %}" class="btn btn-primary">
+        Edit
+      </a>
       <a href="{% url 'moves:cancel' move.pk %}" class="btn btn-outline-danger">
         Cancel move
       </a>
+      {% if user.role == "staff" %}
+        <a href="{% url 'moves:assign_driver' move.pk %}" class="btn btn-outline-primary">
+          Assign driver
+        </a>
+      {% endif %}
     {% endif %}
   {% endif %}
-  {% if user.role == "staff" %}
-    <a href="{% url 'moves:assign_driver' move.pk %}" class="btn btn-outline-primary">
-      Assign driver
-    </a>
-  {% endif %}
+  
   <a href="{% url 'moves:list' %}" class="btn btn-secondary ms-auto">
     Back to list
   </a>

@@ -45,73 +45,77 @@
 
     {% if user_role == 'customer' %}
       <p class="mb-3">Here are your upcoming moves.</p>
+
+      <div class="mb-4">
+        {% if upcoming_moves %}
+          <div class="list-group">
+            {% for move in upcoming_moves %}
+              <a href="{% url 'moves:detail' move.id %}"
+                class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                  <h5 class="mb-1">
+                    {{ move.pickup_address }} → {{ move.dropoff_address }}
+                  </h5>
+                  <small>{{ move.requested_date|date:"M d" }}</small>
+                </div>
+                <p class="mb-1">
+                  Status: {{ move.get_status_display }}
+                </p>
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p>You don’t have any upcoming moves yet.</p>
+        {% endif %}
+      </div>
       <a href="{% url 'moves:create' %}" class="btn btn-primary mb-4">
         + Book a new move
       </a>
-
       <a href="{% url 'moves:list' %}" class="btn btn-outline-secondary mb-4 ms-2">
         View all my moves
       </a>
-
-      {% if upcoming_moves %}
-        <div class="list-group">
-          {% for move in upcoming_moves %}
-            <a href="{% url 'moves:detail' move.id %}"
-               class="list-group-item list-group-item-action">
-              <div class="d-flex w-100 justify-content-between">
-                <h5 class="mb-1">
-                  {{ move.pickup_address }} → {{ move.dropoff_address }}
-                </h5>
-                <small>{{ move.requested_date|date:"M d" }}</small>
-              </div>
-              <p class="mb-1">
-                Status: {{ move.get_status_display }}
-              </p>
-            </a>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p>You don’t have any upcoming moves yet.</p>
-      {% endif %}
-
-    {% elif user_role in 'driver staff' %}
-      <div class="row">
-        <div class="col-md-6 mb-4">
-          <h4>Assigned to you</h4>
-          {% if assigned_moves %}
-            <div class="list-group">
-              {% for move in assigned_moves %}
-                <a href="{% url 'moves:detail' move.id %}"
-                   class="list-group-item list-group-item-action">
-                  <strong>{{ move.pickup_address }} → {{ move.dropoff_address }}</strong><br>
-                  <small>{{ move.requested_date|date:"M d" }} · Status: {{ move.get_status_display }}</small>
-                </a>
-              {% endfor %}
-            </div>
-          {% else %}
-            <p>No active assignments.</p>
-          {% endif %}
-        </div>
-
-        {% if user_role == 'staff' %}
-          <div class="col-md-6 mb-4">
-            <h4>Open requests</h4>
-            {% if open_moves %}
-              <div class="list-group">
-                {% for move in open_moves %}
-                  <a href="{% url 'moves:detail' move.id %}"
-                     class="list-group-item list-group-item-action">
-                    <strong>{{ move.pickup_address }} → {{ move.dropoff_address }}</strong><br>
-                    <small>{{ move.requested_date|date:"M d" }} · Customer: {{ move.customer }}</small>
-                  </a>
-                {% endfor %}
-              </div>
-            {% else %}
-              <p>No pending requests.</p>
-            {% endif %}
+    
+    {% elif user_role == 'driver' %}
+      <h4>Assigned to you</h4>
+      <div class="mb-4">
+        {% if assigned_moves %}
+          <div class="list-group">
+            {% for move in assigned_moves %}
+              <a href="{% url 'moves:detail' move.id %}"
+                  class="list-group-item list-group-item-action">
+                <strong>{{ move.pickup_address }} → {{ move.dropoff_address }}</strong><br>
+                <small>{{ move.requested_date|date:"M d" }} · Status: {{ move.get_status_display }}</small>
+              </a>
+            {% endfor %}
           </div>
+        {% else %}
+          <p>No active assignments.</p>
         {% endif %}
       </div>
+      <a href="{% url 'moves:list' %}" class="btn btn-outline-secondary mb-4 ms-2">
+        View all assigned moves
+      </a>
+
+    {% elif user_role == 'staff' %}
+      <h4>Open requests</h4>
+      <div class="mb-4">
+        {% if open_move_requests %}
+          <div class="list-group">
+            {% for move in open_move_requests %}
+              <a href="{% url 'moves:detail' move.id %}"
+                  class="list-group-item list-group-item-action">
+                <strong>{{ move.pickup_address }} → {{ move.dropoff_address }}</strong><br>
+                <small>{{ move.requested_date|date:"M d" }} · Customer: {{ move.customer }}</small>
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p>No pending requests.</p>
+        {% endif %}
+      </div>
+      <a href="{% url 'moves:list' %}" class="btn btn-outline-secondary mb-4 ms-2">
+        View all moves
+      </a>
     {% else %}
       <p>We couldn’t determine your role. Please contact an administrator.</p>
     {% endif %}
