@@ -64,6 +64,12 @@ class MoveListView(LoginRequiredMixin, ListView):
     context_object_name = 'moves'
     
     def get_queryset(self):
+        """
+        Enforce object-level authorization:
+        - customer: can only view their own moves
+        - driver: can only view assigned moves
+        - staff: can view all moves
+        """
         qs = MoveRequest.objects.select_related('customer', 'driver')
         user = self.request.user
 
@@ -114,12 +120,6 @@ class MoveDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'move'
 
     def get_queryset(self):
-        """
-        Enforce object-level authorization:
-        - customer: can only view their own moves
-        - driver: can only view assigned moves
-        - staff: can view all moves
-        """
         qs = MoveRequest.objects.select_related('customer', 'driver')
         user = self.request.user
 
