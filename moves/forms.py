@@ -51,3 +51,15 @@ class StaffAssignDriverForm(forms.ModelForm):
         if getattr(driver, 'role', None) != 'driver':
             raise forms.ValidationError('Selected user is not a driver.')
         return driver
+
+class DriverStatusForm(forms.ModelForm):
+    class Meta:
+        model = MoveRequest
+        fields = ['status']
+    
+    def clean_status(self):
+        status = self.cleaned_data['status']
+        allowed = {'accepted', 'in_progress', 'completed'}
+        if status not in allowed:
+            raise forms.ValidationError('Invalid status update.')
+        return status

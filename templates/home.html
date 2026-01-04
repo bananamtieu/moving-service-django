@@ -105,7 +105,7 @@
               <a href="{% url 'moves:detail' move.id %}"
                   class="list-group-item list-group-item-action">
                 <strong>{{ move.pickup_address }} → {{ move.dropoff_address }}</strong><br>
-                <small>{{ move.requested_date|date:"M d" }} · Customer: {{ move.customer }}</small>
+                <small>{{ move.requested_date|date:"M d" }} Customer: {{ move.customer }}</small>
               </a>
             {% endfor %}
           </div>

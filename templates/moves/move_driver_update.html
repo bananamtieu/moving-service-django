@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Assign driver – QuickMove{% endblock %}
+{% block title %}Move progress – QuickMove{% endblock %}
 
 {% block content %}
-<h2 class="mb-3">Assign a driver</h2>
+<h2 class="mb-3">Update move status</h2>
 
 <p class="text-muted">
     Move #{{ object.pk }}: {{ object.pickup_address }} → {{ object.dropoff_address }}
@@ -13,7 +13,7 @@
     {{ form.as_p }}
 
     <div class="mt-2">
-        <button type="submit" class="btn btn-primary">Assign</button>
+        <button type="submit" class="btn btn-primary">Save</button>
         <a href="{% url 'moves:detail' object.pk %}" class="btn btn-outline-secondary ms-2">Cancel</a>
     </div>
 </form>

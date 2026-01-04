@@ -65,6 +65,9 @@
           <small>{{ move.scheduled_date|date:"M d" }}</small>
         </div>
         <p class="mb-1">
+          {% if request.user.role == "staff" %}
+            Customer: {{ move.customer.username }} ·
+          {% endif %}
           Status: {{ move.get_status_display }}
         </p>
       </a>

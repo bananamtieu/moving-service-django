@@ -8,7 +8,7 @@ from django.shortcuts import redirect
 from django.http import HttpResponseForbidden
 
 from .models import MoveRequest
-from .forms import MoveRequestForm, StaffAssignDriverForm
+from .forms import MoveRequestForm, StaffAssignDriverForm, DriverStatusForm
 
 # Create your views here.
 class HomeView(TemplateView):
@@ -64,12 +64,12 @@ class MoveListView(LoginRequiredMixin, ListView):
     context_object_name = 'moves'
     
     def get_queryset(self):
-        """
+        '''
         Enforce object-level authorization:
         - customer: can only view their own moves
         - driver: can only view assigned moves
         - staff: can view all moves
-        """
+        '''
         qs = MoveRequest.objects.select_related('customer', 'driver')
         user = self.request.user
 
@@ -126,9 +126,8 @@ class MoveDetailView(LoginRequiredMixin, DetailView):
         if user.role == 'customer':
             return qs.filter(customer=user)
         if user.role == 'driver':
-            return qs.filter(driver=user)  # only assigned moves
+            return qs.filter(driver=user)
         
-        # staff can view all
         return qs
 
 class MoveCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
@@ -167,10 +166,10 @@ class MoveUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
         return (move.customer == user) or (user.role == 'staff')
     
     def dispatch(self, request, *args, **kwargs):
-        # Block editing completed/cancelled moves
-        move = self.get_object()
-        if move.status in ['completed', 'cancelled']:
-            return HttpResponseForbidden('Completed or cancelled moves cannot be edited.')
+        # Block editing in_progress/completed/cancelled moves
+        self.object = self.get_object()
+        if self.object.status in ['in_progress', 'completed', 'cancelled']:
+            return HttpResponseForbidden('This move can no longer be edited.')
         return super().dispatch(request, *args, **kwargs)
     
     def get_success_url(self):
@@ -181,30 +180,6 @@ class MoveUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
         ctx['title'] = 'Edit Move'
         return ctx
 
-class MoveCancelView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
-    model = MoveRequest
-    fields = []  # no editable fields shown
-    template_name = 'moves/move_cancel_confirm.html'
-    context_object_name = "move"
-    required_roles = ('customer', 'staff')
-
-    def test_func(self):
-        if not self.role_test():
-            return False
-
-        move = self.get_object()
-        user = self.request.user
-
-        # Only customer who owns it OR staff can cancel
-        return (move.customer == user) or (user.role == 'staff')
-    
-    def post(self, request, *args, **kwargs):
-        # soft cancel on POST
-        self.object = self.get_object()
-        self.object.status = 'cancelled'
-        self.object.save(update_fields=['status'])
-        return redirect('moves:list')
-
 class StaffAssignDriverView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
     model = MoveRequest
     form_class = StaffAssignDriverForm
@@ -213,8 +188,8 @@ class StaffAssignDriverView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
 
     def dispatch(self, request, *args, **kwargs):
         self.object = self.get_object()
-        if self.object.status in ['completed', 'cancelled']:
-            return HttpResponseForbidden('Cannot assign a driver to a completed/cancelled move.')
+        if self.object.status in ['in_progress', 'completed', 'cancelled']:
+            return HttpResponseForbidden('Driver assignment is not allowed for this move’s status.')
         return super().dispatch(request, *args, **kwargs)
     
     def form_valid(self, form):
@@ -229,3 +204,52 @@ class StaffAssignDriverView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
     
     def get_success_url(self):
         return reverse_lazy('moves:detail', kwargs={'pk': self.object.pk})
+
+class DriverStatusUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
+    model = MoveRequest
+    form_class = DriverStatusForm
+    template_name = 'moves/move_driver_update.html'
+    required_roles = ('driver',)
+    
+    def get_queryset(self):
+        # Driver can update only their assigned moves
+        return MoveRequest.objects.filter(driver=self.request.user)
+    
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.object.status == 'cancelled':
+            return HttpResponseForbidden('This move can no longer be edited.')
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_success_url(self):
+        return reverse_lazy('moves:detail', kwargs={'pk': self.object.pk})
+
+class MoveCancelView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
+    model = MoveRequest
+    fields = []  # no editable fields shown
+    template_name = 'moves/move_cancel_confirm.html'
+    context_object_name = 'move'
+    required_roles = ('customer', 'staff')
+
+    def test_func(self):
+        if not self.role_test():
+            return False
+
+        move = self.get_object()
+        user = self.request.user
+
+        # Only customer who owns it OR staff can cancel
+        return (move.customer == user) or (user.role == 'staff')
+    
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.object.status in ['in_progress', 'completed', 'cancelled']:
+            return HttpResponseForbidden('This move can no longer be cancelled.')
+        return super().dispatch(request, *args, **kwargs)
+    
+    def post(self, request, *args, **kwargs):
+        # soft cancel on POST
+        self.object = self.get_object()
+        self.object.status = 'cancelled'
+        self.object.save(update_fields=['status'])
+        return redirect('moves:list')

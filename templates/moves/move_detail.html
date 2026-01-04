@@ -27,7 +27,7 @@
 
 <div class="d-flex gap-2">
   {% if user == move.customer or user.role == "staff" %}
-    {% if move.status != "cancelled" and move.status != "completed" %}
+    {% if move.status not in "in_progress completed cancelled" %}
       <a href="{% url 'moves:update' move.pk %}" class="btn btn-primary">
         Edit
       </a>
@@ -36,10 +36,15 @@
       </a>
       {% if user.role == "staff" %}
         <a href="{% url 'moves:assign_driver' move.pk %}" class="btn btn-outline-primary">
-          Assign driver
+          Assign / Update driver
         </a>
       {% endif %}
     {% endif %}
+  {% endif %}
+  {% if user.role == "driver" and user == move.driver and move.status != "cancelled" %}
+    <a href="{% url 'moves:driver_update' move.pk %}" class="btn btn-primary">
+      Update Status
+    </a>
   {% endif %}
   
   <a href="{% url 'moves:list' %}" class="btn btn-secondary ms-auto">
